@@ -1,0 +1,208 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  password     String
+  name         String
+  phone        String?
+  role         String         @default("CUSTOMER") // CUSTOMER | MECHANIC | ADMIN
+  avatar       String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  customer     Customer?
+  mechanic     Mechanic?
+  chatMessages ChatMessage[]
+  notifications Notification[]
+  supportTickets SupportTicket[]
+}
+
+model Customer {
+  id             String           @id @default(uuid())
+  userId         String           @unique
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultAddress String?
+  lat            Float?
+  lng            Float?
+
+  vehicles       Vehicle[]
+  requests       ServiceRequest[]
+  ratings        Rating[]
+}
+
+model Mechanic {
+  id              String           @id @default(uuid())
+  userId          String           @unique
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio             String?
+  skillsJson      String           @default("[\"General Service\", \"Battery\", \"Tyre\"]")
+  isOnline        Boolean          @default(false)
+  isVerified      Boolean          @default(false)
+  experienceYears Int              @default(3)
+  hourlyRate      Float            @default(300)
+  rating          Float            @default(4.8)
+  totalRatings    Int              @default(12)
+  lat             Float?
+  lng             Float?
+
+  requests        ServiceRequest[]
+  locations       MechanicLocation[]
+  ratings         Rating[]
+}
+
+model Vehicle {
+  id           String         @id @default(uuid())
+  customerId   String
+  customer     Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type         String         @default("FOUR_WHEELER") // TWO_WHEELER | FOUR_WHEELER | HEAVY
+  brand        String
+  model        String
+  year         Int
+  regNumber    String
+  fuelType     String         @default("Petrol")
+  isPrimary    Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+
+  requests     ServiceRequest[]
+}
+
+model ServiceType {
+  id                      String           @id @default(uuid())
+  key                     String           @unique
+  name                    String
+  category                String
+  basePrice               Float
+  estimatedDurationMinutes Int             @default(30)
+  iconName                String
+  description             String
+
+  requests                ServiceRequest[]
+}
+
+model ServiceRequest {
+  id                 String                 @id @default(uuid())
+  bookingCode        String                 @unique
+  customerId         String
+  customer           Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  mechanicId         String?
+  mechanic           Mechanic?              @relation(fields: [mechanicId], references: [id], onDelete: SetNull)
+  vehicleId          String
+  vehicle            Vehicle                @relation(fields: [vehicleId], references: [id])
+  serviceTypeId      String
+  serviceType        ServiceType            @relation(fields: [serviceTypeId], references: [id])
+  priority           String                 @default("NORMAL") // NORMAL | URGENT
+  status             String                 @default("CREATED") // CREATED | SEARCHING | MATCHED | ACCEPTED | EN_ROUTE | ARRIVED | SERVICING | COMPLETED | PAYMENT_PENDING | PAID | RATED | CANCELLED | NO_MECHANIC_AVAILABLE
+  issueDescription   String?
+  aiDiagnosisJson    String?
+  customerLat        Float
+  customerLng        Float
+  customerAddress    String?
+  baseAmount         Float
+  extraChargesAmount Float                  @default(0)
+  totalAmount        Float
+  paymentStatus      String                 @default("PENDING") // PENDING | PROCESSING | PAID | FAILED
+  paymentMethod      String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  statusHistory      BookingStatusHistory[]
+  additionalCharges  AdditionalCharge[]
+  payments           Payment[]
+  ratings            Rating[]
+  chatMessages       ChatMessage[]
+}
+
+model BookingStatusHistory {
+  id               String         @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  status           String
+  note             String?
+  timestamp        DateTime       @default(now())
+}
+
+model MechanicLocation {
+  id         String   @id @default(uuid())
+  mechanicId String
+  mechanic   Mechanic @relation(fields: [mechanicId], references: [id], onDelete: Cascade)
+  lat        Float
+  lng        Float
+  timestamp  DateTime @default(now())
+}
+
+model AdditionalCharge {
+  id               String         @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  amount           Float
+  status           String         @default("PENDING") // PENDING | APPROVED | DECLINED
+  createdAt        DateTime       @default(now())
+}
+
+model Payment {
+  id               String         @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  transactionId    String         @unique
+  amount           Float
+  method           String
+  status           String         @default("PAID")
+  timestamp        DateTime       @default(now())
+}
+
+model Rating {
+  id               String         @id @default(uuid())
+  serviceRequestId String         @unique
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  customerId       String
+  customer         Customer       @relation(fields: [customerId], references: [id])
+  mechanicId       String
+  mechanic         Mechanic       @relation(fields: [mechanicId], references: [id])
+  stars            Int
+  feedbackTagsJson String         @default("[]")
+  reviewText       String?
+  createdAt        DateTime       @default(now())
+}
+
+model ChatMessage {
+  id               String         @id @default(uuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  senderId         String
+  sender           User           @relation(fields: [senderId], references: [id])
+  senderRole       String
+  message          String
+  timestamp        DateTime       @default(now())
+  read             Boolean        @default(false)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  message   String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+}

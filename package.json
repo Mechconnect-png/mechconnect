@@ -1,0 +1,15 @@
+{
+  "name": "mechconnect-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MechConnect - AI-Powered On-Demand Roadside Assistance Platform",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "seed": "npm --prefix backend run seed",
+    "test": "npm --prefix backend run test"
+  }
+}

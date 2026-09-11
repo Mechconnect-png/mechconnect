@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const mechanic_controller_js_1 = require("../controllers/mechanic.controller.js");
+const auth_middleware_js_1 = require("../middleware/auth.middleware.js");
+const router = (0, express_1.Router)();
+router.use(auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_1.authorizeRoles)("MECHANIC", "ADMIN"));
+router.get("/profile", mechanic_controller_js_1.MechanicController.getProfile);
+router.put("/availability", mechanic_controller_js_1.MechanicController.toggleAvailability);
+router.post("/location", mechanic_controller_js_1.MechanicController.updateLocation);
+router.get("/requests", mechanic_controller_js_1.MechanicController.getAvailableRequests);
+router.get("/earnings", mechanic_controller_js_1.MechanicController.getEarnings);
+exports.default = router;

@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const admin_controller_js_1 = require("../controllers/admin.controller.js");
+const auth_middleware_js_1 = require("../middleware/auth.middleware.js");
+const router = (0, express_1.Router)();
+router.use(auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_1.authorizeRoles)("ADMIN"));
+router.get("/dashboard", admin_controller_js_1.AdminController.getDashboardStats);
+router.get("/mechanics", admin_controller_js_1.AdminController.getMechanics);
+router.put("/mechanics/:id/verify", admin_controller_js_1.AdminController.verifyMechanic);
+router.get("/bookings", admin_controller_js_1.AdminController.getAllBookings);
+exports.default = router;

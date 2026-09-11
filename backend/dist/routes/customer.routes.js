@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const customer_controller_js_1 = require("../controllers/customer.controller.js");
+const auth_middleware_js_1 = require("../middleware/auth.middleware.js");
+const router = (0, express_1.Router)();
+router.get("/service-types", customer_controller_js_1.CustomerController.getServiceTypes);
+router.use(auth_middleware_js_1.authenticateJWT, (0, auth_middleware_js_1.authorizeRoles)("CUSTOMER", "ADMIN"));
+router.get("/vehicles", customer_controller_js_1.CustomerController.getVehicles);
+router.post("/vehicles", customer_controller_js_1.CustomerController.addVehicle);
+router.delete("/vehicles/:id", customer_controller_js_1.CustomerController.deleteVehicle);
+router.get("/active-booking", customer_controller_js_1.CustomerController.getActiveBooking);
+router.get("/history", customer_controller_js_1.CustomerController.getHistory);
+exports.default = router;
