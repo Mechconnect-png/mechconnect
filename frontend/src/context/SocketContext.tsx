@@ -9,13 +9,25 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType>({ socket: null, isConnected: false });
 
-const getSocketUrl = () => {
-  const envUrl = (import.meta as any).env?.VITE_BACKEND_URL;
-  if (envUrl) return envUrl;
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+const getSocketUrl = (): string => {
+  const envUrl =
+    (import.meta as any).env?.VITE_SOCKET_URL ||
+    (import.meta as any).env?.VITE_BACKEND_URL ||
+    (import.meta as any).env?.VITE_API_URL;
+
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+    return trimmed.replace(/\/api$/, '');
+  }
+
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ) {
     return 'http://localhost:5000';
   }
-  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
+
+  return 'https://mechconnect-iwjv.onrender.com';
 };
 
 // Module-level singleton socket instance to prevent React StrictMode reconnect loops

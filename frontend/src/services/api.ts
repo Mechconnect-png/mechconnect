@@ -1,6 +1,26 @@
 import { AIDiagnosisResult, BookingStatus, ServiceRequest, ServiceType, User, Vehicle } from '../types';
 
-const API_BASE = '/api';
+function getApiBaseUrl(): string {
+  const envUrl =
+    (import.meta as any).env?.VITE_API_URL ||
+    (import.meta as any).env?.VITE_BACKEND_URL;
+
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    const trimmed = envUrl.trim().replace(/\/+$/, '');
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+  }
+
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ) {
+    return 'http://localhost:5000/api';
+  }
+
+  return 'https://mechconnect-iwjv.onrender.com/api';
+}
+
+const API_BASE = getApiBaseUrl();
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('mechconnect_token');
@@ -14,15 +34,36 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const targetUrl = `${API_BASE}${cleanEndpoint}`;
 
-  const data = await response.json();
+  let response: Response;
+  try {
+    response = await fetch(targetUrl, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    throw new Error(`Network connection error to backend at ${targetUrl}: ${err.message}`);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const responseText = await response.text();
+
+  let data: any;
+  if (contentType.includes('application/json') || responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Invalid JSON returned from ${targetUrl} (HTTP ${response.status}): ${responseText.substring(0, 100)}`);
+    }
+  } else {
+    const textPreview = responseText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 120);
+    throw new Error(`Server at ${targetUrl} returned HTTP ${response.status} non-JSON response: "${textPreview || 'No response text'}"`);
+  }
 
   if (!response.ok || data.success === false) {
-    throw new Error(data.message || 'API Request failed');
+    throw new Error(data.message || `Request failed with status ${response.status}`);
   }
 
   return data;
