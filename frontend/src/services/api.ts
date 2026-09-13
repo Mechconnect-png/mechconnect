@@ -1,13 +1,17 @@
 import { AIDiagnosisResult, BookingStatus, ServiceRequest, ServiceType, User, Vehicle } from '../types';
 
+const RENDER_BACKEND_URL = 'https://mechconnect-iwjv.onrender.com';
+
 function getApiBaseUrl(): string {
   const envUrl =
     (import.meta as any).env?.VITE_API_URL ||
     (import.meta as any).env?.VITE_BACKEND_URL;
 
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+  if (envUrl && typeof envUrl === 'string') {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
-    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+    if (trimmed !== '' && !trimmed.includes('vercel.app')) {
+      return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+    }
   }
 
   if (
@@ -17,7 +21,7 @@ function getApiBaseUrl(): string {
     return 'http://localhost:5000/api';
   }
 
-  return 'https://mechconnect-iwjv.onrender.com/api';
+  return `${RENDER_BACKEND_URL}/api`;
 }
 
 const API_BASE = getApiBaseUrl();

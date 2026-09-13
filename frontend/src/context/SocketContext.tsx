@@ -9,15 +9,19 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType>({ socket: null, isConnected: false });
 
+const RENDER_BACKEND_URL = 'https://mechconnect-iwjv.onrender.com';
+
 const getSocketUrl = (): string => {
   const envUrl =
     (import.meta as any).env?.VITE_SOCKET_URL ||
     (import.meta as any).env?.VITE_BACKEND_URL ||
     (import.meta as any).env?.VITE_API_URL;
 
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+  if (envUrl && typeof envUrl === 'string') {
     const trimmed = envUrl.trim().replace(/\/+$/, '');
-    return trimmed.replace(/\/api$/, '');
+    if (trimmed !== '' && !trimmed.includes('vercel.app')) {
+      return trimmed.replace(/\/api$/, '');
+    }
   }
 
   if (
@@ -27,7 +31,7 @@ const getSocketUrl = (): string => {
     return 'http://localhost:5000';
   }
 
-  return 'https://mechconnect-iwjv.onrender.com';
+  return RENDER_BACKEND_URL;
 };
 
 // Module-level singleton socket instance to prevent React StrictMode reconnect loops
