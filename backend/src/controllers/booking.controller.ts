@@ -185,7 +185,7 @@ export class BookingController {
           throw new Error("Request not found.");
         }
 
-        if (current.status !== "SEARCHING" && current.status !== "CREATED") {
+        if (!["SEARCHING", "CREATED", "MATCHED"].includes(current.status)) {
           throw new Error("ALREADY_ASSIGNED");
         }
 
