@@ -21,6 +21,8 @@ interface MapViewProps {
   mechanicLocations?: MechanicMapLocation[];
   bookingStatus?: string;
   bookingId?: string;
+  interactivePin?: boolean;
+  onLocationSelect?: (lat: number, lng: number) => void;
   onArrivalReached?: () => void;
   onProgressUpdate?: (remainingKm: number, etaMins: number) => void;
 }
@@ -173,12 +175,18 @@ const MapCameraController: React.FC<{
   isNavigating: boolean;
   isAutoFollow: boolean;
   onUserInteraction: () => void;
-}> = ({ center, mechanicPos, customerPos, isNavigating, isAutoFollow, onUserInteraction }) => {
+  onLocationSelect?: (lat: number, lng: number) => void;
+}> = ({ center, mechanicPos, customerPos, isNavigating, isAutoFollow, onUserInteraction, onLocationSelect }) => {
   const map = useMap();
 
   useMapEvents({
     dragstart: () => onUserInteraction(),
-    zoomstart: () => onUserInteraction()
+    zoomstart: () => onUserInteraction(),
+    click: (e) => {
+      if (onLocationSelect && !isNavigating) {
+        onLocationSelect(e.latlng.lat, e.latlng.lng);
+      }
+    }
   });
 
   useEffect(() => {
@@ -202,6 +210,8 @@ export const MapView: React.FC<MapViewProps> = ({
   mechanicLocations = [],
   bookingStatus,
   bookingId,
+  interactivePin = true,
+  onLocationSelect,
   onArrivalReached,
   onProgressUpdate
 }) => {
@@ -380,14 +390,28 @@ export const MapView: React.FC<MapViewProps> = ({
           isNavigating={isNavigating}
           isAutoFollow={isAutoFollow}
           onUserInteraction={() => setIsAutoFollow(false)}
+          onLocationSelect={onLocationSelect}
         />
 
         {/* Customer Breakdown Location Marker */}
         {customerLocation && (
-          <Marker position={customerLocation} icon={customerIcon}>
+          <Marker
+            position={customerLocation}
+            icon={customerIcon}
+            draggable={interactivePin && !isNavigating}
+            eventHandlers={{
+              dragend: (e) => {
+                const marker = e.target;
+                const pos = marker.getLatLng();
+                if (onLocationSelect) {
+                  onLocationSelect(pos.lat, pos.lng);
+                }
+              }
+            }}
+          >
             <Popup className="custom-popup">
               <div className="p-1 font-sans text-xs font-semibold text-slate-800">
-                📍 Customer Breakdown Location
+                📍 Breakdown Location (Click map or drag pin to select)
               </div>
             </Popup>
           </Marker>

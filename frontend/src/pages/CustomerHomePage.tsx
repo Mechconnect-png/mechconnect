@@ -13,6 +13,7 @@ import { RatingModal } from '../components/customer/RatingModal';
 import { ChatDrawer } from '../components/customer/ChatDrawer';
 import { Modal } from '../components/common/Modal';
 import { api } from '../services/api';
+import { fetchAddressFromCoords } from '../services/routing';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { ServiceRequest, ServiceType, Vehicle, AIDiagnosisResult, MatchedMechanicResult, AdditionalCharge } from '../types';
@@ -138,21 +139,44 @@ export const CustomerHomePage: React.FC = () => {
     }
   };
 
+  const handleLocationSelected = async (lat: number, lng: number) => {
+    const coords: [number, number] = [lat, lng];
+    setLocation(coords);
+    const addr = await fetchAddressFromCoords(lat, lng);
+    setAddress(addr);
+  };
+
   const handleUseCurrentGPS = () => {
     setGettingGPS(true);
     if (navigator.geolocation) {
+      const optionsHigh = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
+      const optionsLow = { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 };
+
       navigator.geolocation.getCurrentPosition(
-        pos => {
-          const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          setLocation(coords);
-          setAddress(`Current Browser GPS (${coords[0].toFixed(4)}, ${coords[1].toFixed(4)})`);
+        async pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          await handleLocationSelected(lat, lng);
           setGettingGPS(false);
         },
         () => {
-          setLocation(DEMO_CHENNAI);
-          setAddress('Anna Nagar West, Chennai (Demo GPS Fallback)');
-          setGettingGPS(false);
-        }
+          // Retry once with low accuracy (e.g. for desktop browsers) before fallback
+          navigator.geolocation.getCurrentPosition(
+            async pos => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              await handleLocationSelected(lat, lng);
+              setGettingGPS(false);
+            },
+            () => {
+              setLocation(DEMO_CHENNAI);
+              setAddress('Anna Nagar West, Chennai (Demo GPS Fallback)');
+              setGettingGPS(false);
+            },
+            optionsLow
+          );
+        },
+        optionsHigh
       );
     } else {
       setGettingGPS(false);
@@ -250,6 +274,7 @@ export const CustomerHomePage: React.FC = () => {
           }
           bookingStatus={activeBooking?.status}
           bookingId={activeBooking?.id}
+          onLocationSelect={handleLocationSelected}
           onArrivalReached={async () => {
             if (activeBooking && activeBooking.status === 'EN_ROUTE') {
               try {

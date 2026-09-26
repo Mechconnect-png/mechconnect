@@ -6,6 +6,38 @@ export interface RouteResult {
 }
 
 /**
+ * Reverse geocodes latitude and longitude into a readable street address using OpenStreetMap Nominatim API.
+ * Falls back to clean coordinate string if network/service is unavailable.
+ */
+export async function fetchAddressFromCoords(lat: number, lng: number): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.display_name) {
+        const parts = data.display_name.split(', ');
+        if (parts.length > 3) {
+          return `${parts[0]}, ${parts[1]}, ${parts[2]}`;
+        }
+        return data.display_name;
+      }
+    }
+  } catch (err) {
+    console.warn('[GPS] Reverse geocoding fallback used:', err);
+  }
+
+  return `Breakdown Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+}
+
+/**
  * Calculates Haversine distance in meters between two lat/lng points.
  */
 export function getHaversineDistanceMeters(
