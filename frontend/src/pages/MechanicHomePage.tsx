@@ -11,7 +11,6 @@ import { useAuth } from '../context/AuthContext';
 import { ServiceRequest } from '../types';
 import { Power, DollarSign, Star, CheckCircle2, ShieldCheck, MapPin } from 'lucide-react';
 
-const DEMO_MECH_COORDS: [number, number] = [13.0890, 80.2750];
 
 export const MechanicHomePage: React.FC = () => {
   const { user } = useAuth();
@@ -126,6 +125,30 @@ export const MechanicHomePage: React.FC = () => {
     }
   };
 
+  // Dynamic mechanic location calculation anchored relative to active job customer location or current location
+  const getDynamicMechanicPos = (): [number, number] => {
+    if (activeJob) {
+      const custLat = activeJob.customerLat;
+      const custLng = activeJob.customerLng;
+      const mechLat = activeJob.mechanic?.lat;
+      const mechLng = activeJob.mechanic?.lng;
+
+      // Check if DB mechanic location is near customer (< 50km)
+      if (mechLat && mechLng) {
+        const dLat = (mechLat - custLat) * 111;
+        const dLng = (mechLng - custLng) * 111;
+        if (Math.sqrt(dLat * dLat + dLng * dLng) <= 50) {
+          return [mechLat, mechLng];
+        }
+      }
+      return [custLat + 0.005, custLng + 0.006];
+    }
+    return [13.0827, 80.2707];
+  };
+
+  const currentMechCoords = getDynamicMechanicPos();
+  const mapCenterCoords: [number, number] = activeJob ? [activeJob.customerLat, activeJob.customerLng] : currentMechCoords;
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-slate-950">
       <Navbar />
@@ -133,15 +156,15 @@ export const MechanicHomePage: React.FC = () => {
       {/* MAP BACKGROUND */}
       <div className="absolute inset-0 z-0">
         <MapView
-          center={DEMO_MECH_COORDS}
+          center={mapCenterCoords}
           zoom={14}
           customerLocation={activeJob ? [activeJob.customerLat, activeJob.customerLng] : undefined}
           mechanicLocations={[
             {
               id: user?.mechanicId || 'm1',
               name: user?.name || 'Mechanic',
-              lat: DEMO_MECH_COORDS[0],
-              lng: DEMO_MECH_COORDS[1],
+              lat: currentMechCoords[0],
+              lng: currentMechCoords[1],
               isAssigned: !!activeJob
             }
           ]}

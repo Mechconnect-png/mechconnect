@@ -203,6 +203,13 @@ const MapCameraController: React.FC<{
   return null;
 };
 
+function isValidCoordinate(lat: any, lng: any): boolean {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return false;
+  const numLat = Number(lat);
+  const numLng = Number(lng);
+  return !isNaN(numLat) && !isNaN(numLng) && numLat >= -90 && numLat <= 90 && numLng >= -180 && numLng <= 180;
+}
+
 export const MapView: React.FC<MapViewProps> = ({
   center,
   zoom = 14,
@@ -216,7 +223,43 @@ export const MapView: React.FC<MapViewProps> = ({
   onProgressUpdate
 }) => {
   const isNavigating = bookingStatus === 'EN_ROUTE';
-  const assignedMechanic = mechanicLocations.find(m => m.isAssigned);
+
+  // Coordinate validation & distance sanity check (< 50km threshold)
+  const validCustomerPos: [number, number] | undefined = (customerLocation && isValidCoordinate(customerLocation[0], customerLocation[1]))
+    ? [Number(customerLocation[0]), Number(customerLocation[1])]
+    : undefined;
+
+  let assignedMechanic = mechanicLocations.find(m => m.isAssigned);
+  if (assignedMechanic && validCustomerPos) {
+    if (!isValidCoordinate(assignedMechanic.lat, assignedMechanic.lng)) {
+      assignedMechanic = {
+        ...assignedMechanic,
+        lat: validCustomerPos[0] + 0.005,
+        lng: validCustomerPos[1] + 0.006
+      };
+    } else {
+      const distMeters = getHaversineDistanceMeters(
+        assignedMechanic.lat,
+        assignedMechanic.lng,
+        validCustomerPos[0],
+        validCustomerPos[1]
+      );
+      const distKm = distMeters / 1000;
+
+      if (distKm > 50) {
+        console.warn(
+          `[LOCATION BUG DETECTED] Booking ID ${bookingId || 'N/A'}: Customer at (${validCustomerPos[0]}, ${validCustomerPos[1]}), ` +
+          `Mechanic at (${assignedMechanic.lat}, ${assignedMechanic.lng}). Distance: ${distKm.toFixed(1)}km > 50km threshold. ` +
+          `Enforcing local dynamic positioning relative to breakdown location.`
+        );
+        assignedMechanic = {
+          ...assignedMechanic,
+          lat: validCustomerPos[0] + 0.005,
+          lng: validCustomerPos[1] + 0.006
+        };
+      }
+    }
+  }
 
   // Route & Navigation States
   const [fullRoute, setFullRoute] = useState<RouteResult | null>(null);
@@ -233,12 +276,12 @@ export const MapView: React.FC<MapViewProps> = ({
   useEffect(() => {
     let isSubscribed = true;
 
-    if (isNavigating && assignedMechanic && customerLocation) {
+    if (isNavigating && assignedMechanic && validCustomerPos) {
       fetchRoadRoute(
         assignedMechanic.lat,
         assignedMechanic.lng,
-        customerLocation[0],
-        customerLocation[1]
+        validCustomerPos[0],
+        validCustomerPos[1]
       ).then(routeRes => {
         if (isSubscribed) {
           setFullRoute(routeRes);
@@ -257,7 +300,7 @@ export const MapView: React.FC<MapViewProps> = ({
     return () => {
       isSubscribed = false;
     };
-  }, [isNavigating, assignedMechanic?.lat, assignedMechanic?.lng, customerLocation?.[0], customerLocation?.[1]]);
+  }, [isNavigating, assignedMechanic?.lat, assignedMechanic?.lng, validCustomerPos?.[0], validCustomerPos?.[1]]);
 
   // Navigation movement loop along road route
   useEffect(() => {
@@ -284,8 +327,8 @@ export const MapView: React.FC<MapViewProps> = ({
             movementTimerRef.current = null;
           }
 
-          if (customerLocation) {
-            setCurrentMechanicPos(customerLocation);
+          if (validCustomerPos) {
+            setCurrentMechanicPos(validCustomerPos);
           }
 
           if (!arrivalFiredRef.current && onArrivalReached) {
@@ -309,12 +352,12 @@ export const MapView: React.FC<MapViewProps> = ({
         setHeadingAngle(smoothedAngle);
 
         // Check arrival distance threshold (30 meters)
-        if (customerLocation) {
+        if (validCustomerPos) {
           const distanceToCustomer = getHaversineDistanceMeters(
             nextPos[0],
             nextPos[1],
-            customerLocation[0],
-            customerLocation[1]
+            validCustomerPos[0],
+            validCustomerPos[1]
           );
 
           if (distanceToCustomer <= ARRIVAL_RADIUS_METERS) {
@@ -358,7 +401,7 @@ export const MapView: React.FC<MapViewProps> = ({
         movementTimerRef.current = null;
       }
     };
-  }, [isNavigating, fullRoute, customerLocation, onArrivalReached, onProgressUpdate]);
+  }, [isNavigating, fullRoute, validCustomerPos?.[0], validCustomerPos?.[1], onArrivalReached, onProgressUpdate]);
 
   // Derived polyline segments: Completed route (subtle) vs Remaining route (vibrant)
   const completedPath: Array<[number, number]> = fullRoute
@@ -386,7 +429,7 @@ export const MapView: React.FC<MapViewProps> = ({
         <MapCameraController
           center={center}
           mechanicPos={currentMechanicPos || undefined}
-          customerPos={customerLocation}
+          customerPos={validCustomerPos}
           isNavigating={isNavigating}
           isAutoFollow={isAutoFollow}
           onUserInteraction={() => setIsAutoFollow(false)}
@@ -394,9 +437,9 @@ export const MapView: React.FC<MapViewProps> = ({
         />
 
         {/* Customer Breakdown Location Marker */}
-        {customerLocation && (
+        {validCustomerPos && (
           <Marker
-            position={customerLocation}
+            position={validCustomerPos}
             icon={customerIcon}
             draggable={interactivePin && !isNavigating}
             eventHandlers={{

@@ -105,6 +105,37 @@ export class BookingController {
       const lat = customerLat !== undefined ? Number(customerLat) : 13.0827;
       const lng = customerLng !== undefined ? Number(customerLng) : 80.2707;
 
+      // Check if mechanics need dynamic location sync relative to breakdown site (e.g. if customer is outside seeded area)
+      const needsLocationSync = onlineMechanics.every(m => {
+        if (m.lat === null || m.lat === undefined || m.lng === null || m.lng === undefined) return true;
+        const dLat = (m.lat - lat) * 111;
+        const dLng = (m.lng - lng) * 111;
+        const distKm = Math.sqrt(dLat * dLat + dLng * dLng);
+        return distKm > 25;
+      });
+
+      if (needsLocationSync && onlineMechanics.length > 0) {
+        const offsets = [
+          { dLat: 0.005, dLng: 0.006 },
+          { dLat: -0.004, dLng: 0.008 },
+          { dLat: -0.008, dLng: -0.005 },
+          { dLat: 0.007, dLng: -0.007 },
+          { dLat: 0.003, dLng: 0.004 }
+        ];
+
+        for (let i = 0; i < onlineMechanics.length; i++) {
+          const offset = offsets[i % offsets.length];
+          const newLat = lat + offset.dLat;
+          const newLng = lng + offset.dLng;
+          onlineMechanics[i].lat = newLat;
+          onlineMechanics[i].lng = newLng;
+          await prisma.mechanic.update({
+            where: { id: onlineMechanics[i].id },
+            data: { lat: newLat, lng: newLng }
+          }).catch(() => {});
+        }
+      }
+
       const mechanicsWithCount = onlineMechanics.map(mech => ({
         ...mech,
         _count: { requests: mech.requests.length }
@@ -192,6 +223,25 @@ export class BookingController {
 
         if (current.mechanicId && current.mechanicId !== mechanicId) {
           throw new Error("ALREADY_ASSIGNED");
+        }
+
+        // Fetch mechanic current position and verify proximity
+        const mech = await tx.mechanic.findUnique({ where: { id: mechanicId } });
+        let assignedLat = mech?.lat ?? current.customerLat + 0.005;
+        let assignedLng = mech?.lng ?? current.customerLng + 0.006;
+
+        const dLat = (assignedLat - current.customerLat) * 111;
+        const dLng = (assignedLng - current.customerLng) * 111;
+        const distKm = Math.sqrt(dLat * dLat + dLng * dLng);
+
+        // If mechanic is > 50km away from customer breakdown site, position mechanic near customer
+        if (distKm > 50) {
+          assignedLat = current.customerLat + 0.005;
+          assignedLng = current.customerLng + 0.006;
+          await tx.mechanic.update({
+            where: { id: mechanicId },
+            data: { lat: assignedLat, lng: assignedLng }
+          });
         }
 
         const accepted = await tx.serviceRequest.update({

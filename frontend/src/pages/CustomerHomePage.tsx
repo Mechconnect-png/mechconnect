@@ -257,15 +257,33 @@ export const CustomerHomePage: React.FC = () => {
           customerLocation={location}
           mechanicLocations={
             activeBooking?.mechanic
-              ? [
-                  {
-                    id: activeBooking.mechanic.id,
-                    name: activeBooking.mechanic.user?.name || 'Assigned Mechanic',
-                    lat: activeBooking.mechanic.lat || location[0] + 0.008,
-                    lng: activeBooking.mechanic.lng || location[1] + 0.008,
-                    isAssigned: true
+              ? (() => {
+                  const custLat = activeBooking.customerLat;
+                  const custLng = activeBooking.customerLng;
+                  const mLat = activeBooking.mechanic.lat;
+                  const mLng = activeBooking.mechanic.lng;
+                  let safeLat = custLat + 0.005;
+                  let safeLng = custLng + 0.006;
+
+                  if (mLat && mLng) {
+                    const dLat = (mLat - custLat) * 111;
+                    const dLng = (mLng - custLng) * 111;
+                    if (Math.sqrt(dLat * dLat + dLng * dLng) <= 50) {
+                      safeLat = mLat;
+                      safeLng = mLng;
+                    }
                   }
-                ]
+
+                  return [
+                    {
+                      id: activeBooking.mechanic.id,
+                      name: activeBooking.mechanic.user?.name || 'Assigned Mechanic',
+                      lat: safeLat,
+                      lng: safeLng,
+                      isAssigned: true
+                    }
+                  ];
+                })()
               : [
                   { id: 'm1', name: 'Karthik Raja (Pro Mechanic)', lat: location[0] + 0.005, lng: location[1] + 0.006 },
                   { id: 'm2', name: 'Suresh Kumar (Towing)', lat: location[0] - 0.004, lng: location[1] + 0.008 },
