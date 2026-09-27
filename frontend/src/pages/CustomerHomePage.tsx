@@ -16,8 +16,9 @@ import { api } from '../services/api';
 import { fetchAddressFromCoords } from '../services/routing';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
+import { LocationPickerModal } from '../components/customer/LocationPickerModal';
 import { ServiceRequest, ServiceType, Vehicle, AIDiagnosisResult, MatchedMechanicResult, AdditionalCharge } from '../types';
-import { Search, MapPin, Bot, Car, Zap, Disc, Fuel, Wrench, Flame, Truck, Cpu, ChevronUp, Plus, ShieldCheck, AlertOctagon, ShieldAlert, PhoneCall } from 'lucide-react';
+import { Search, MapPin, Bot, Car, Zap, Disc, Fuel, Wrench, Flame, Truck, Cpu, ChevronUp, Plus, ShieldCheck, AlertOctagon, ShieldAlert, PhoneCall, Edit3, Compass } from 'lucide-react';
 
 const DEMO_CHENNAI: [number, number] = [13.0827, 80.2707];
 
@@ -37,7 +38,7 @@ export const CustomerHomePage: React.FC = () => {
 
   // Location state
   const [location, setLocation] = useState<[number, number]>(DEMO_CHENNAI);
-  const [address, setAddress] = useState<string>('Anna Nagar West, Chennai (Demo GPS)');
+  const [address, setAddress] = useState<string>('Gandhipuram, Coimbatore, Tamil Nadu');
   const [gettingGPS, setGettingGPS] = useState(false);
 
   // Assistance Priority & Emergency SOS Modal
@@ -55,6 +56,7 @@ export const CustomerHomePage: React.FC = () => {
   // Modals
   const [showAiModal, setShowAiModal] = useState(false);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showMatchingModal, setShowMatchingModal] = useState(false);
   const [bestMatch, setBestMatch] = useState<MatchedMechanicResult | null>(null);
   const [showChat, setShowChat] = useState(false);
@@ -98,6 +100,12 @@ export const CustomerHomePage: React.FC = () => {
 
       if (bRes.booking) {
         setActiveBooking(bRes.booking);
+        if (bRes.booking.customerLat && bRes.booking.customerLng) {
+          setLocation([bRes.booking.customerLat, bRes.booking.customerLng]);
+        }
+        if (bRes.booking.customerAddress) {
+          setAddress(bRes.booking.customerAddress);
+        }
         checkPendingFlows(bRes.booking);
       }
     } catch (err) {
@@ -329,21 +337,33 @@ export const CustomerHomePage: React.FC = () => {
             </div>
           )}
 
-          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-              <MapPin className="w-5 h-5 text-sky-400 shrink-0" />
+          <div className="bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3">
+            <div
+              className="flex items-center gap-2.5 flex-1 min-w-0 cursor-pointer group"
+              onClick={() => setShowLocationPicker(true)}
+            >
+              <div className="p-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 group-hover:bg-sky-500/20 transition-all">
+                <MapPin className="w-5 h-5 shrink-0" />
+              </div>
               <div className="truncate">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block">Assistance Location</span>
-                <span className="text-xs font-bold text-white truncate block">{address}</span>
+                <span className="text-[10px] uppercase font-extrabold text-sky-400 block tracking-wider">
+                  📍 Breakdown Location
+                </span>
+                <span className="text-xs font-bold text-white truncate block group-hover:text-sky-300 transition-colors">
+                  {address}
+                </span>
               </div>
             </div>
 
-            <button
-              onClick={handleUseCurrentGPS}
-              className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 transition-colors text-xs font-extrabold shrink-0 border border-sky-500/30"
-            >
-              {gettingGPS ? 'GPS...' : 'Use GPS'}
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setShowLocationPicker(true)}
+                className="px-3 py-1.5 rounded-xl bg-sky-500 text-white hover:bg-sky-400 transition-all text-xs font-extrabold shadow-lg shadow-sky-500/20 flex items-center gap-1.5"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>Search</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -559,6 +579,19 @@ export const CustomerHomePage: React.FC = () => {
         onVehicleAdded={v => {
           setVehicles([...vehicles, v]);
           setSelectedVehicle(v);
+        }}
+      />
+
+      {/* Manual Location Search & Confirmation Modal */}
+      <LocationPickerModal
+        isOpen={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        initialLat={location[0]}
+        initialLng={location[1]}
+        initialAddress={address}
+        onConfirmLocation={selected => {
+          setLocation([selected.lat, selected.lng]);
+          setAddress(selected.address);
         }}
       />
 

@@ -5,6 +5,141 @@ export interface RouteResult {
   etaMinutes: number;
 }
 
+export interface LocationSearchResult {
+  placeId: string;
+  displayName: string;
+  lat: number;
+  lng: number;
+}
+
+/**
+ * Searches location suggestions using OpenStreetMap Nominatim geocoding API.
+ * Uses query parameter and returns latitude, longitude, and formatted display address.
+ */
+export async function searchLocationSuggestions(query: string): Promise<LocationSearchResult[]> {
+  if (!query || query.trim().length < 2) return [];
+
+  const trimmed = query.trim();
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const encoded = encodeURIComponent(trimmed);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((item: any) => ({
+          placeId: String(item.place_id || Math.random()),
+          displayName: item.display_name,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon)
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('[GEOCODING] Nominatim search network fallback:', err);
+  }
+
+  // Pre-configured geocoded fallback dictionary for reliable offline/demo testing
+  const fallbackDict: Array<{ keys: string[]; displayName: string; lat: number; lng: number }> = [
+    {
+      keys: ['gandhipuram', 'gandhi puram'],
+      displayName: 'Gandhipuram, Coimbatore, Tamil Nadu, India',
+      lat: 11.0168,
+      lng: 76.9558
+    },
+    {
+      keys: ['rs puram', 'r.s. puram', 'rspuram'],
+      displayName: 'RS Puram, Coimbatore, Tamil Nadu, India',
+      lat: 11.0084,
+      lng: 76.9463
+    },
+    {
+      keys: ['anna nagar'],
+      displayName: 'Anna Nagar, Chennai, Tamil Nadu, India',
+      lat: 13.0890,
+      lng: 80.2750
+    },
+    {
+      keys: ['t nagar', 't. nagar', 'thyagaraya nagar'],
+      displayName: 'T Nagar, Chennai, Tamil Nadu, India',
+      lat: 13.0418,
+      lng: 80.2341
+    },
+    {
+      keys: ['avinashi road', 'avinashi'],
+      displayName: 'Avinashi Road, Coimbatore, Tamil Nadu, India',
+      lat: 11.0183,
+      lng: 76.9742
+    },
+    {
+      keys: ['peelamedu'],
+      displayName: 'Peelamedu, Coimbatore, Tamil Nadu, India',
+      lat: 11.0270,
+      lng: 77.0030
+    },
+    {
+      keys: ['adyar'],
+      displayName: 'Adyar, Chennai, Tamil Nadu, India',
+      lat: 13.0012,
+      lng: 80.2565
+    },
+    {
+      keys: ['velachery'],
+      displayName: 'Velachery, Chennai, Tamil Nadu, India',
+      lat: 12.9759,
+      lng: 80.2212
+    },
+    {
+      keys: ['guindy'],
+      displayName: 'Guindy, Chennai, Tamil Nadu, India',
+      lat: 13.0067,
+      lng: 80.2020
+    },
+    {
+      keys: ['madurai'],
+      displayName: 'Madurai Main, Madurai, Tamil Nadu, India',
+      lat: 9.9252,
+      lng: 78.1198
+    },
+    {
+      keys: ['trichy', 'tiruchirappalli'],
+      displayName: 'Tiruchirappalli, Tamil Nadu, India',
+      lat: 10.7905,
+      lng: 78.7047
+    },
+    {
+      keys: ['salem'],
+      displayName: 'Salem City, Tamil Nadu, India',
+      lat: 11.6643,
+      lng: 78.1460
+    }
+  ];
+
+  const lower = trimmed.toLowerCase();
+  const matched = fallbackDict.filter(item =>
+    item.keys.some(k => lower.includes(k) || k.includes(lower))
+  );
+
+  if (matched.length > 0) {
+    return matched.map((item, idx) => ({
+      placeId: `fallback-${idx}`,
+      displayName: item.displayName,
+      lat: item.lat,
+      lng: item.lng
+    }));
+  }
+
+  return [];
+}
+
 /**
  * Reverse geocodes latitude and longitude into a readable street address using OpenStreetMap Nominatim API.
  * Falls back to clean coordinate string if network/service is unavailable.
