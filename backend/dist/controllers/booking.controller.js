@@ -86,10 +86,15 @@ class BookingController {
             }
             const lat = customerLat !== undefined ? Number(customerLat) : 13.0827;
             const lng = customerLng !== undefined ? Number(customerLng) : 80.2707;
-            const matches = onlineMechanics
-                .map(mech => matching_service_js_1.MatchingService.calculateMatchScore({ ...mech, _count: { requests: mech.requests.length } }, { customerLat: lat, customerLng: lng, serviceCategoryKey: serviceType.key }))
-                .filter((m) => m !== null)
-                .sort((a, b) => b.matchScore - a.matchScore);
+            const mechanicsWithCount = onlineMechanics.map(mech => ({
+                ...mech,
+                _count: { requests: mech.requests.length }
+            }));
+            const matches = matching_service_js_1.MatchingService.rankMechanics(mechanicsWithCount, {
+                customerLat: lat,
+                customerLng: lng,
+                serviceCategoryKey: serviceType.key
+            });
             const bestMatch = matches.length > 0 ? matches[0] : null;
             const isUrgent = priority === "URGENT";
             const newRequest = await prisma.serviceRequest.create({

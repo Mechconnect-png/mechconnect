@@ -105,15 +105,16 @@ export class BookingController {
       const lat = customerLat !== undefined ? Number(customerLat) : 13.0827;
       const lng = customerLng !== undefined ? Number(customerLng) : 80.2707;
 
-      const matches = onlineMechanics
-        .map(mech =>
-          MatchingService.calculateMatchScore(
-            { ...mech, _count: { requests: mech.requests.length } },
-            { customerLat: lat, customerLng: lng, serviceCategoryKey: serviceType.key }
-          )
-        )
-        .filter((m): m is NonNullable<typeof m> => m !== null)
-        .sort((a, b) => b.matchScore - a.matchScore);
+      const mechanicsWithCount = onlineMechanics.map(mech => ({
+        ...mech,
+        _count: { requests: mech.requests.length }
+      }));
+
+      const matches = MatchingService.rankMechanics(mechanicsWithCount, {
+        customerLat: lat,
+        customerLng: lng,
+        serviceCategoryKey: serviceType.key
+      });
 
       const bestMatch = matches.length > 0 ? matches[0] : null;
       const isUrgent = priority === "URGENT";
